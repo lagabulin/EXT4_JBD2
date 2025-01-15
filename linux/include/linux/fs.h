@@ -630,120 +630,130 @@ is_uncached_acl(struct posix_acl *acl)
  * of the 'struct inode'
  */
 struct inode {
-	umode_t			i_mode;
-	unsigned short		i_opflags;
-	kuid_t			i_uid;
-	kgid_t			i_gid;
-	unsigned int		i_flags;
+	umode_t			i_mode;		// 파일 타입(Regular, direcotry, socket, FIFO), 권한 등을 식별한다. S_IFDIR, S_IRWXU 참고
+	unsigned short		i_opflags;	// TODO: 위에 IOP_ 플래그들이 저장됨. 아이노드 연산 분석 시 설명 추가하기
+	kuid_t			i_uid;		// 파일 소유 유저 아이디
+	kgid_t			i_gid;		// 파일 소유 그룹 아이디
+	unsigned int		i_flags;	// 아이노드에 플래그를 설정함. S_SYNC 참고
 
 #ifdef CONFIG_FS_POSIX_ACL
-	struct posix_acl	*i_acl;
+	struct posix_acl	*i_acl;		// access control list 관련
 	struct posix_acl	*i_default_acl;
 #endif
 
-	const struct inode_operations	*i_op;
-	struct super_block	*i_sb;
-	struct address_space	*i_mapping;
+	const struct inode_operations	*i_op;	// 아이노드 연산 모음
+	struct super_block	*i_sb;		// inode_init_always_gfp에서 alloc_inode의 인자로 넣은 수퍼블럭의 주소로 이 필드를  초기화 한다.
+	struct address_space	*i_mapping;	// cacheble mappable object에 대한 정보라고 하는데 mmap과 관련이 있을 것 같다. TODO: 설명 추가
 
 #ifdef CONFIG_SECURITY
-	void			*i_security;
+	void			*i_security;	// 보안
 #endif
 
 	/* Stat data, not accessed from path walking */
-	unsigned long		i_ino;
+	unsigned long		i_ino;		// inode 넘버 같다. __ext4_new_inode에서 채울 때 group 뒤지고 그룹당 아이노드 수를 곱한 값을 더해서 vfs_inode에 넣어준다.
 	/*
 	 * Filesystems may only read i_nlink directly.  They shall use the
 	 * following functions for modification:
 	 *
 	 *    (set|clear|inc|drop)_nlink
 	 *    inode_(inc|dec)_link_count
+	 *
+	 * 아이노드에 연결된 하드 링크 갯수, TODO:심볼릭은 안 세는 것 맞는지 확인하기 
+	 * __i_nlink를 i_nlink의 직접 접근을 차단하고 위에 명시된 함수로만 접근하게 하려고 만든 것이다.
+	 * 기존의 i_nlink를 지우지 않고 union으로 선언한 이유는 
+	 * 기존에 i_nlink를 건드리던 함수들이 컴파일되는 것을 막기 위함인 것 같다.
+	 * 원래는 unsigned int i_nlink 밖에 없었음.
 	 */
 	union {
 		const unsigned int i_nlink;
 		unsigned int __i_nlink;
 	};
-	dev_t			i_rdev;
-	loff_t			i_size;
-	time64_t		i_atime_sec;
-	time64_t		i_mtime_sec;
-	time64_t		i_ctime_sec;
-	u32			i_atime_nsec;
-	u32			i_mtime_nsec;
-	u32			i_ctime_nsec;
-	u32			i_generation;
-	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
-	unsigned short          i_bytes;
-	u8			i_blkbits;
-	enum rw_hint		i_write_hint;
-	blkcnt_t		i_blocks;
+	dev_t			i_rdev;		// init_special_inode를 보면 블럭 디바이스 파일이나 캐릭터 디바이스 파일일 경우 설정되는 것 같다.
+	loff_t			i_size;		// 바이트 단위의 파일 크기, TODO: 사실 확인
+	time64_t		i_atime_sec;	// 접근 시각 초단위
+	time64_t		i_mtime_sec;	// 수정 시각 초단위
+	time64_t		i_ctime_sec;	// inode 변경 시각 초단위, TODO: 사실 확인
+	u32			i_atime_nsec;	// 접근 시각 나노초 단위
+	u32			i_mtime_nsec;	// 수정 시각 나노초단위
+	u32			i_ctime_nsec;	// inode 변경 시각 나노초단위, TODO: 사실 확인
+	u32			i_generation;	// NFS에서 필요한 것 같음.
+	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size, 애네들을 보호한다.  */
+	unsigned short          i_bytes;	// TODO: 파일 크기 같은데 확실 x.
+	u8			i_blkbits;	// TODO: 아이노드 내부 바이트 오프셋 표현을 위한 블럭수 같다. 확실 X.
+	enum rw_hint		i_write_hint;	// TODO: 잘 모르겠음.
+	blkcnt_t		i_blocks;	// TODO: 파일이 차지하는 블럭 수 같은데 확실 X.
 
 #ifdef __NEED_I_SIZE_ORDERED
-	seqcount_t		i_size_seqcount;
+	seqcount_t		i_size_seqcount;	// 생략
 #endif
 
 	/* Misc */
-	u32			i_state;
+	u32			i_state;	// dirty, sync등등 상태 비트, I_DIRTY 참고
 	/* 32-bit hole */
-	struct rw_semaphore	i_rwsem;
+	struct rw_semaphore	i_rwsem;	// lookup을 parallel하게 하려고 rwsemaphore를 쓰는 것 같다. 메타데이터 수정 시 항상 writelock획득해야하는 것으로 알고 있음. TODO: 맞는지 확인
 
-	unsigned long		dirtied_when;	/* jiffies of first dirtying */
-	unsigned long		dirtied_time_when;
+	unsigned long		dirtied_when;	/* jiffies of first dirtying, dirty 상태로 변화된 시각, TODO: 확인 필요 */
+	unsigned long		dirtied_time_when;	// dirty 상태에서 아이노드가 수정된 시간, TODO: 확인 필요
 
-	struct hlist_node	i_hash;
-	struct list_head	i_io_list;	/* backing dev IO list */
+	struct hlist_node	i_hash;		// RCU 관련
+	struct list_head	i_io_list;	/* backing dev IO list, Writeback 관련 */
 #ifdef CONFIG_CGROUP_WRITEBACK
-	struct bdi_writeback	*i_wb;		/* the associated cgroup wb */
+	struct bdi_writeback	*i_wb;		/* the associated cgroup wb, cgroup 관련 */
 
 	/* foreign inode detection, see wbc_detach_inode() */
 	int			i_wb_frn_winner;
 	u16			i_wb_frn_avg_time;
 	u16			i_wb_frn_history;
 #endif
-	struct list_head	i_lru;		/* inode LRU list */
-	struct list_head	i_sb_list;
-	struct list_head	i_wb_list;	/* backing dev writeback list */
+	struct list_head	i_lru;		/* inode LRU list, 수퍼블럭에서 관리하는 그 lru 리스트 같다.*/
+	struct list_head	i_sb_list;	// 수퍼블럭에서 관리하는 전체 아이노드 리스트
+	struct list_head	i_wb_list;	/* backing dev writeback list, 수퍼블럭에서 관리하는 writeback 아이노드 리스트 */
 	union {
 		struct hlist_head	i_dentry;
 		struct rcu_head		i_rcu;
-	};
-	atomic64_t		i_version;
+	}; // TODO: 잘 모르겠음
+	atomic64_t		i_version;	// 사용 시마다 증가하는 버전 번호, TODO: 역할 설명
 	atomic64_t		i_sequence; /* see futex */
-	atomic_t		i_count;
-	atomic_t		i_dio_count;
-	atomic_t		i_writecount;
+	atomic_t		i_count;	// TODO: 참조 카운터 같은데 확인 필요
+	atomic_t		i_dio_count;	// TODO
+	atomic_t		i_writecount;	// rwsemaphore에서 프로세스 세는 count 같다.
 #if defined(CONFIG_IMA) || defined(CONFIG_FILE_LOCKING)
 	atomic_t		i_readcount; /* struct files open RO */
 #endif
 	union {
-		const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */
-		void (*free_inode)(struct inode *);
+		const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops, 아이노드가 속하는 파일 시스템의 파일 연산 묶음이 저장된다. */
+		void (*free_inode)(struct inode *);	
+		// VFS가 아닌 실제 파일 시스템 아이노드 메모리를 해제하는 것 같다.
+		// ext4_free_in_core_inode 참고
+		// EXT4의 경우 i_fop을 저장할 때도 있고 free_inode를 저장할 때도 
+		// 있는데 어떻게 구분하는지 모르겠다.
 	};
-	struct file_lock_context	*i_flctx;
+	struct file_lock_context	*i_flctx;	// TODO: 이 구조체의 등장에는  과거에 file lock을 여러개 관리하는 것과 관련이 있었나 보다. 아이노드가 왜 여러 파일의 락을 관리하는지 알아봐얄 듯
 	struct address_space	i_data;
 	struct list_head	i_devices;
 	union {
-		struct pipe_inode_info	*i_pipe;
-		struct cdev		*i_cdev;
-		char			*i_link;
-		unsigned		i_dir_seq;
+		struct pipe_inode_info	*i_pipe;	// 파이프에 대한 아이노드인 경우
+		struct cdev		*i_cdev;	// 캐릭터 디바이스에 대한 아이노드인 경우
+		char			*i_link;	// TODO: char*가 뭘 가리키는 건지
+		unsigned		i_dir_seq;	// TODO
 	};
 
 
 #ifdef CONFIG_FSNOTIFY
 	__u32			i_fsnotify_mask; /* all events this inode cares about */
 	/* 32-bit hole reserved for expanding i_fsnotify_mask */
-	struct fsnotify_mark_connector __rcu	*i_fsnotify_marks;
+	struct fsnotify_mark_connector __rcu	*i_fsnotify_marks; // TODO: fsnotify 알게 되면 설명 추가
 #endif
 
 #ifdef CONFIG_FS_ENCRYPTION
-	struct fscrypt_inode_info	*i_crypt_info;
+	struct fscrypt_inode_info	*i_crypt_info;	// 보안
 #endif
 
 #ifdef CONFIG_FS_VERITY
-	struct fsverity_info	*i_verity_info;
+	struct fsverity_info	*i_verity_info;	// 보안
 #endif
 
-	void			*i_private; /* fs or device private pointer */
+	void			*i_private; /* fs or device private pointer, EXT4에서는 수퍼블럭과 달리 이건 안쓰는 것 같음. */
 } __randomize_layout;
 
 /*
