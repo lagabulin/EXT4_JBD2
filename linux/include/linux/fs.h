@@ -1251,57 +1251,58 @@ struct sb_writers {
 };
 
 struct super_block {
-	struct list_head	s_list;		/* Keep this first */
-	dev_t			s_dev;		/* search index; _not_ kdev_t */
-	unsigned char		s_blocksize_bits;
-	unsigned long		s_blocksize;
-	loff_t			s_maxbytes;	/* Max file size */
-	struct file_system_type	*s_type;
-	const struct super_operations	*s_op;
-	const struct dquot_operations	*dq_op;
-	const struct quotactl_ops	*s_qcop;
-	const struct export_operations *s_export_op;
-	unsigned long		s_flags;
-	unsigned long		s_iflags;	/* internal SB_I_* flags */
-	unsigned long		s_magic;
-	struct dentry		*s_root;
-	struct rw_semaphore	s_umount;
-	int			s_count;
-	atomic_t		s_active;
+	struct list_head	s_list;		/* Keep this first, 여러 파일 시스템의 슈퍼 블럭들을 연결한다. TODO: 중요해보이지는 않으나 사용하는 코드를 보면 이 용도가 맞는지 확인하기 */
+	dev_t			s_dev;		/* search index; _not_ kdev_t, 파일 시스템으로 관리되는 디바이스 검색에 사용되는 인덱스 */
+	unsigned char		s_blocksize_bits; /* 블럭 내부 오프셋을 모두 표현하는데 몇 비트가 필요한지 나타낸다. sector == block이면 8이고 4K면 12이다. sb_set_blocksize 참고 */
+	unsigned long		s_blocksize;	/* 블럭 사이즈, 단위: 바이트*/
+	loff_t			s_maxbytes;	/* Max file size, 파일의 최대 크기를 바이트로 나타낸다. */
+	struct file_system_type	*s_type;	/* 파일시스템 이름, 마운트 함수 등을 저장한다. ext4_fs_type 참고 */
+	const struct super_operations	*s_op;	/* 아이노드 생성, 삭제 등의 연산 포인터들을 하나의 구조체로 묶어서 저장한다. */
+	const struct dquot_operations	*dq_op; /* 쿼터(디스크 사용량 제한)을 위한 연산들을 모아놓는다. */
+	const struct quotactl_ops	*s_qcop;/* 쿼터 관련 연산들을 저장한다. */
+	const struct export_operations *s_export_op; /* NFS를 위한 연산 모음으로 보임. */
+	unsigned long		s_flags;	/* 마운트 옵션들을 저장한다, EXT4 마운트 옵션보다는 파일 시스템의 구조와 무관한 것들을 저장한다. e.g., RDONLY */
+	unsigned long		s_iflags;	/* internal SB_I_* flags, TODO: s_flags랑 차이는 잘 모르겠다. SB_I_NOEXEC 검색 시 옵션 목록을 볼 수 있음. */
+	unsigned long		s_magic;	/* TODO: 매직넘버, 용도는 잘 모르겠음. */
+	struct dentry		*s_root;	/* 루트 디렉토리에 대한 dentry, 일반적으로 /이나 마운트시 지정한 디렉토리이고 procfs의 경우 /proc */
+	struct rw_semaphore	s_umount;	/* 마운트 해제용 세마포어, TODO: EXT4 마운트 함수 분석 시 어디서 동기화 필요한지 설명 추가 */	
+	int			s_count;	/* 수퍼블럭 참조 카운터, TODO: 수퍼블럭들을 순회할 때 사용됨. sb_lock이라는 스핀락에 의해 보호되는 arc이고 아마 할당 해제랑 읽기를 동기화하기 위함인 것 같다.  */	
+	atomic_t		s_active;	/* s_count의 보조카운터, TODO: 설명 추가*/
 #ifdef CONFIG_SECURITY
-	void                    *s_security;
+	void                    *s_security;	// 보안
 #endif
-	const struct xattr_handler * const *s_xattr;
+	const struct xattr_handler * const *s_xattr; /* 위 플래그들 외의 확장 속성을 위한 구조체 포인터, TODO  */
 #ifdef CONFIG_FS_ENCRYPTION
-	const struct fscrypt_operations	*s_cop;
+	const struct fscrypt_operations	*s_cop;	// 보안
 	struct fscrypt_keyring	*s_master_keys; /* master crypto keys in use */
 #endif
 #ifdef CONFIG_FS_VERITY
-	const struct fsverity_operations *s_vop;
+	const struct fsverity_operations *s_vop; // 보안
 #endif
 #if IS_ENABLED(CONFIG_UNICODE)
-	struct unicode_map *s_encoding;
+	struct unicode_map *s_encoding;		// 유니코드 체계를 지원할 경우 
 	__u16 s_encoding_flags;
 #endif
-	struct hlist_bl_head	s_roots;	/* alternate root dentries for NFS */
-	struct list_head	s_mounts;	/* list of mounts; _not_ for fs use */
-	struct block_device	*s_bdev;	/* can go away once we use an accessor for @s_bdev_file */
-	struct file		*s_bdev_file;
-	struct backing_dev_info *s_bdi;
-	struct mtd_info		*s_mtd;
-	struct hlist_node	s_instances;
-	unsigned int		s_quota_types;	/* Bitmask of supported quota types */
-	struct quota_info	s_dquot;	/* Diskquota specific options */
+	struct hlist_bl_head	s_roots;	/* alternate root dentries for NFS, NFS용 필드 */
+	struct list_head	s_mounts;	/* list of mounts; _not_ for fs use, 마운트 내역을 기록하기 위한 리스트*/
+	struct block_device	*s_bdev;	/* can go away once we use an accessor for @s_bdev_file, 수퍼 블럭의 파일 시스템으로 관리되는 블럭 디바이스를 가리킨다. TODO: 주석을 이해 못했는데, 자주 사용되는 것 같으면 설명 추가하기 */
+	struct file		*s_bdev_file;	// 블럭 디바이스를 파일 인터페이스로 관리할 수 있게 한다.
+	struct backing_dev_info *s_bdi;		// 파일 시스템이 관리하는 디바이스의 정보(이름, 쓰기 대역폭) 등을 저장하는 구조체
+	struct mtd_info		*s_mtd;		// 플래쉬 메모리를 지원하기 윈한 구조체라고 함.
+	struct hlist_node	s_instances;	// 동일 타입의 파일 시스템을 관리하는 수퍼블럭들을 순회하기 위함. iterate_supers_type() 참고
+	unsigned int		s_quota_types;	/* Bitmask of supported quota types, 쿼터 관련 */
+	struct quota_info	s_dquot;	/* Diskquota specific options, 쿼터 관련 */
 
-	struct sb_writers	s_writers;
+	struct sb_writers	s_writers;	// fsfreezing을 위한 건데 fsfreeze는 man페이지를 보면 하드웨어 RAID를 위한 것이라고 한다.
 
 	/*
 	 * Keep s_fs_info, s_time_gran, s_fsnotify_mask, and
 	 * s_fsnotify_info together for cache efficiency. They are frequently
 	 * accessed and rarely modified.
 	 */
-	void			*s_fs_info;	/* Filesystem private info */
+	void			*s_fs_info;	/* Filesystem private info, EXT4의 경우 EXT4_sb_info를 가리키게 한다. */
 
+	// 시간 측정 관련 필드들. 최소 측정 단위, 시간 최대, 최소 값
 	/* Granularity of c/m/atime in ns (cannot be worse than a second) */
 	u32			s_time_gran;
 	/* Time limits for c/m/atime in seconds */
@@ -1309,7 +1310,7 @@ struct super_block {
 	time64_t		   s_time_max;
 #ifdef CONFIG_FSNOTIFY
 	u32			s_fsnotify_mask;
-	struct fsnotify_sb_info	*s_fsnotify_info;
+	struct fsnotify_sb_info	*s_fsnotify_info;	// 파일 시스템 접근 정보를 알려주는 fsnotify라는 시스템과 관련된 구조체로 보임.
 #endif
 
 	/*
@@ -1321,6 +1322,8 @@ struct super_block {
 	 * identifying it by UUID
 	 * but s_sysfs_name is a handle for programmatic access, and can't
 	 * change at runtime
+	 *
+	 * s_id는 변할 수 있는 이름, s_sysfs_name은 변할 수 없는 이름이다.
 	 */
 	char			s_id[32];	/* Informational name */
 	uuid_t			s_uuid;		/* UUID */
@@ -1329,34 +1332,41 @@ struct super_block {
 	/* if set, fs shows up under sysfs at /sys/fs/$FSTYP/s_sysfs_name */
 	char			s_sysfs_name[UUID_STRING_LEN + 1];
 
-	unsigned int		s_max_links;
+	unsigned int		s_max_links;	// 파일에 걸 수 있는 최대 링크의 수. TODO: EXT4는 EXT4_LINK_MAX를 여기에 집어넣지 않는 것을 보아 vfs에서 사실상 이걸 안쓸 것 같음. 확인 후 설명 추가하기, soft, hard link 구분하는 지도 확인
 
 	/*
 	 * The next field is for VFS *only*. No filesystems have any business
 	 * even looking at it. You had been warned.
+	 * 
+	 * rename 연산을 위한 파일 시스템 전역 뮤텍스
+	 * TODO: 이걸 쓰는 경우가 rename 내에서도 디렉토리를 옮겨다니는 경우로 한정되는 걸로 알고 있는데 rename 분석 시 설명 추가하기.
 	 */
 	struct mutex s_vfs_rename_mutex;	/* Kludge */
 
 	/*
 	 * Filesystem subtype.  If non-empty the filesystem type field
 	 * in /proc/mounts will be "type.subtype"
+	 * 
+	 * 네임스페이스나 fuse에서 사용하는 것으로 보임.
 	 */
 	const char *s_subtype;
 
-	const struct dentry_operations *s_d_op; /* default d_op for dentries */
+	const struct dentry_operations *s_d_op; /* default d_op for dentries, 디렉토리 연산 모음 */
 
-	struct shrinker *s_shrink;	/* per-sb shrinker handle */
+	struct shrinker *s_shrink;	/* per-sb shrinker handle, caching에 바운드를 주거나 일부를 free하여 메모리를 과소비하지 않게 하는 것이 shrinker의 역할이다. TODO: 설명추가, 페이지 캐시 관련된 것인지 */
 
-	/* Number of inodes with nlink == 0 but still referenced */
+	/* Number of inodes with nlink == 0 but still referenced 
+	 * 더 이상 참조되고 있지 않지만 메모리를 차지하는 아이노드 구조체의 수
+	 * */
 	atomic_long_t s_remove_count;
 
-	/* Read-only state of the superblock is being changed */
+	/* Read-only state of the superblock is being changed, TODO: 설명 추가 */
 	int s_readonly_remount;
 
-	/* per-sb errseq_t for reporting writeback errors via syncfs */
+	/* per-sb errseq_t for reporting writeback errors via syncfs, 디스크 sync시 에러 발생하면 저장 */
 	errseq_t s_wb_err;
 
-	/* AIO completions deferred from interrupt context */
+	/* AIO completions deferred from interrupt context, TODO: 설명추가, 아직 워크큐에 대한 지식 부재 */
 	struct workqueue_struct *s_dio_done_wq;
 	struct hlist_head s_pins;
 
@@ -1364,6 +1374,8 @@ struct super_block {
 	 * Owning user namespace and default context in which to
 	 * interpret filesystem uids, gids, quotas, device nodes,
 	 * xattrs and security labels.
+	 *
+	 * TODO: 설명추가, 네임스페이스에 대한 지식 부재
 	 */
 	struct user_namespace *s_user_ns;
 
@@ -1371,25 +1383,32 @@ struct super_block {
 	 * The list_lru structure is essentially just a pointer to a table
 	 * of per-node lru lists, each of which has its own spinlock.
 	 * There is no need to put them into separate cachelines.
+	 *
+	 * LRU로 dentry객체와 inode 객체들을 관리하는 리스트 같다. 메모리 관리용으로 생각됨
+	 * TODO: 확인
 	 */
 	struct list_lru		s_dentry_lru;
 	struct list_lru		s_inode_lru;
 	struct rcu_head		rcu;
 	struct work_struct	destroy_work;
 
-	struct mutex		s_sync_lock;	/* sync serialisation lock */
+	struct mutex		s_sync_lock;	/* sync serialisation lock, 여러 sync 요청을 동기화하기 위한 뮤텍스 */
 
 	/*
 	 * Indicates how deep in a filesystem stack this SB is
+	 *
+	 * encryptFS등 stackable filesystem에서 현재 이 슈퍼블럭이 관리하는 파일 시스템이 위치하는 깊이 
 	 */
 	int s_stack_depth;
 
-	/* s_inode_list_lock protects s_inodes */
+	/* s_inode_list_lock protects s_inodes 
+	 * 모든 아이노드를 스핀락을 사용하여  관리함.
+	 * */
 	spinlock_t		s_inode_list_lock ____cacheline_aligned_in_smp;
 	struct list_head	s_inodes;	/* all inodes */
 
 	spinlock_t		s_inode_wblist_lock;
-	struct list_head	s_inodes_wb;	/* writeback inodes */
+	struct list_head	s_inodes_wb;	/* writeback inodes, sync에 사용되는 아이노드 리스트 */
 } __randomize_layout;
 
 static inline struct user_namespace *i_user_ns(const struct inode *inode)

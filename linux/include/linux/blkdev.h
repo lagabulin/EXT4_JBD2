@@ -1433,6 +1433,7 @@ static inline int blk_rq_aligned(struct request_queue *q, unsigned long addr,
 /* assumes size > 256 */
 static inline unsigned int blksize_bits(unsigned int size)
 {
+	/* order_base_2는 양의 정수 인자의 가장 높은 1비트가 몇번째 비트인지(0번부터 센다)*/
 	return order_base_2(size >> SECTOR_SHIFT) + SECTOR_SHIFT;
 }
 
