@@ -81,33 +81,35 @@ extern const struct qstr dotdot_name;
 
 struct dentry {
 	/* RCU lookup touched fields */
-	unsigned int d_flags;		/* protected by d_lock */
-	seqcount_spinlock_t d_seq;	/* per dentry seqlock */
+	unsigned int d_flags;		/* protected by d_lock, DCACHE_ 플래그가 저장됨 */
+	seqcount_spinlock_t d_seq;	/* per dentry seqlock, TODO: 왜 시퀀셜 락 쓰는지 설명 추가 */
 	struct hlist_bl_node d_hash;	/* lookup hash list */
-	struct dentry *d_parent;	/* parent directory */
-	struct qstr d_name;
+	struct dentry *d_parent;	/* parent directory, 부모 디렉토리에 대한 포인터 */
+	struct qstr d_name;		// 디렉토리 이름을 저장한다. TODO: 안에 있는 해쉬 역할 설명 추가 
 	struct inode *d_inode;		/* Where the name belongs to - NULL is
-					 * negative */
-	unsigned char d_iname[DNAME_INLINE_LEN];	/* small names */
+					 * negative, 디렉토리 아이노드 */
+	unsigned char d_iname[DNAME_INLINE_LEN];	/* small names, 약칭? 풀네임은 qstr에 포인터로 넣어서 메타데이터 크기를 줄이는 것 같다. */
 	/* --- cacheline 1 boundary (64 bytes) was 32 bytes ago --- */
 
 	/* Ref lookup also touches following */
-	const struct dentry_operations *d_op;
-	struct super_block *d_sb;	/* The root of the dentry tree */
+	const struct dentry_operations *d_op;	// 디렉토리 연산 포인터 묶음
+	struct super_block *d_sb;	/* The root of the dentry tree, 파일 시스템 수퍼 블럭 */
 	unsigned long d_time;		/* used by d_revalidate */
-	void *d_fsdata;			/* fs-specific data */
+	void *d_fsdata;			/* fs-specific data, EXT4에서는 안 쓰는 것 같음. */
 	/* --- cacheline 2 boundary (128 bytes) --- */
 	struct lockref d_lockref;	/* per-dentry lock and refcount
 					 * keep separate from RCU lookup area if
 					 * possible!
+					 *
+					 * lock-based 원자 참조 카운터, TODO: 용도 확인
 					 */
 
 	union {
 		struct list_head d_lru;		/* LRU list */
 		wait_queue_head_t *d_wait;	/* in-lookup ones only */
-	};
-	struct hlist_node d_sib;	/* child of parent list */
-	struct hlist_head d_children;	/* our children */
+	};	// dcache 방출할 때 사용하는 lru list 헤드 같다. TODO: 설명 추가
+	struct hlist_node d_sib;	/* child of parent list, 부모의 자식들에 대한 해시 테이블 노드 */
+	struct hlist_head d_children;	/* our children, 자신의 자식 노드들에 대한 해시 테이블 */
 	/*
 	 * d_alias and d_rcu can share memory
 	 */
@@ -115,7 +117,7 @@ struct dentry {
 		struct hlist_node d_alias;	/* inode alias list */
 		struct hlist_bl_node d_in_lookup_hash;	/* only for in-lookup ones */
 	 	struct rcu_head d_rcu;
-	} d_u;
+	} d_u; // TODO: 설명 추가, inode alias가 symbolic ink를 말하는 건지 뭔지 모르겠음.
 };
 
 /*
