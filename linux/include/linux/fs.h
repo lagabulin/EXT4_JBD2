@@ -1040,40 +1040,40 @@ static inline int ra_has_index(struct file_ra_state *ra, pgoff_t index)
  * @f_freeptr: Pointer used by SLAB_TYPESAFE_BY_RCU file cache (don't touch.)
  */
 struct file {
-	atomic_long_t			f_count;
-	spinlock_t			f_lock;
-	fmode_t				f_mode;
-	const struct file_operations	*f_op;
-	struct address_space		*f_mapping;
-	void				*private_data;
-	struct inode			*f_inode;
-	unsigned int			f_flags;
-	unsigned int			f_iocb_flags;
-	const struct cred		*f_cred;
+	atomic_long_t			f_count;	// 참조 카운터
+	spinlock_t			f_lock;		// f_ep, f_flags를 보호하는 스핀락
+	fmode_t				f_mode;		// FMODE_ 플래그들을 저장함. Read, write, exec 등 실행 관련 설정인 것으로 보임.  FMODE_READ 참고
+	const struct file_operations	*f_op;		// 파일 연산 포인터 묶음
+	struct address_space		*f_mapping;	// TODO: inode랑 아마 같은 포인터를 공유할 듯함. mmap 등과 관련 있어 보임. 
+	void				*private_data;	// 파일 시스템, 드라이버마다 다른 개체의 포인터를 저장할 수 있음. EXT4에서는 dir_private_info의 주소를 저장하는 것 같다.
+	struct inode			*f_inode;	// 아이노드 포인터
+	unsigned int			f_flags;	// 파일 플래그, O_ 플래그들이 저장됨. O_NONBLOCK
+	unsigned int			f_iocb_flags;	// I/O control block 관련, f_flags에 따라 설정된다. iocb_flag() 참고
+	const struct cred		*f_cred;	// 보안
 	/* --- cacheline 1 boundary (64 bytes) --- */
-	struct path			f_path;
+	struct path			f_path;		// path, TODO: 뭔가 string을 저장할 줄 알았는데 vfsmount랑 dentry 포인터밖에 없다. 어떤 용도이고 link가 여러 개 일 경우 어떻게 관리되는지 설명 추가하기
 	union {
 		/* regular files (with FMODE_ATOMIC_POS) and directories */
-		struct mutex		f_pos_lock;
+		struct mutex		f_pos_lock;	// position 읽고 쓰려면 획득해야하는 락
 		/* pipes */
-		u64			f_pipe;
+		u64			f_pipe;		// 파이프에서 사용됨. w_counter 저장
 	};
-	loff_t				f_pos;
+	loff_t				f_pos;		// 파일 내에서 읽거나 쓸 기준점
 #ifdef CONFIG_SECURITY
-	void				*f_security;
+	void				*f_security;	// 보안
 #endif
 	/* --- cacheline 2 boundary (128 bytes) --- */
-	struct fown_struct		*f_owner;
-	errseq_t			f_wb_err;
-	errseq_t			f_sb_err;
+	struct fown_struct		*f_owner;	// pid, uid 등을 저장하는 구조체, 파일 주인을 알려줌
+	errseq_t			f_wb_err;	// writeback에서 에러 발생할 때 코드
+	errseq_t			f_sb_err;	// superblock 수준에서 발생한 writeback 에러
 #ifdef CONFIG_EPOLL
-	struct hlist_head		*f_ep;
+	struct hlist_head		*f_ep;		// EPOLL 관련
 #endif
 	union {
-		struct callback_head	f_task_work;
-		struct llist_node	f_llist;
-		struct file_ra_state	f_ra;
-		freeptr_t		f_freeptr;
+		struct callback_head	f_task_work;	// TODO: RCU 관련인지 워크큐 관련인지 잘 모르겠음. 설명 추가 
+		struct llist_node	f_llist;	// lock-less 단일 연결 리스트, 워크큐 관련 인듯 
+		struct file_ra_state	f_ra;		// readahead관련, readahead란 메모리-디스크 사이의 prefetch 비슷한 거 같다. 
+		freeptr_t		f_freeptr;	// SLAB 관련
 	};
 	/* --- cacheline 3 boundary (192 bytes) --- */
 } __randomize_layout
