@@ -132,11 +132,11 @@ getname_flags(const char __user *filename, int flags)
 	char *kname;
 	int len;
 
-	result = audit_reusename(filename);
+	result = audit_reusename(filename);	// 재사용 가능하면 할당받고 바로 리턴. TODO:audit 뭔지 모르겠음.
 	if (result)
 		return result;
 
-	result = __getname();
+	result = __getname();		// kalloc으로 개체 받아옴.
 	if (unlikely(!result))
 		return ERR_PTR(-ENOMEM);
 
@@ -147,9 +147,17 @@ getname_flags(const char __user *filename, int flags)
 	kname = (char *)result->iname;
 	result->name = kname;
 
+	// 유저공간에 있는 filename 스트링에서 result의 iname 에다 복사한다. 
+	// 복사된 길이(null은 카운트에서 제외)만큼 리턴
+	// 실패시 EFAULT 리턴
+	// TODO: iname은 그냥 const char 배열(길이 안 정해짐)인데 여기에 주소를 언제 저장하는 지 모르겠음. names_cache랑 관련 있는 것 같음.
 	len = strncpy_from_user(kname, filename, EMBEDDED_NAME_MAX);
 	/*
 	 * Handle both empty path and copy failure in one go.
+	 *
+	 * EFAULT 리턴하거나 복사한 양이 없을 경우 두 가지 체크한다. 
+	 * EFAULT일경우 첫번째 검사에서 result 할당 해제하고 -EFAULT를 리턴한다.
+	 * 두번째는 empty path인 경우라는데 open syscall의 경우 flags를 0으로 주기 때문에 상관 없다.  
 	 */
 	if (unlikely(len <= 0)) {
 		if (unlikely(len < 0)) {

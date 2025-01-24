@@ -721,7 +721,7 @@ struct inode {
 	atomic_t		i_readcount; /* struct files open RO */
 #endif
 	union {
-		const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops, 아이노드가 속하는 파일 시스템의 파일 연산 묶음이 저장된다. */
+		const struct file_operations	*i_fop;	/* former ->i_op->default_file_ops, 아이노드가 속하는 파일 시스템의 파일 연산 묶음이 저장된다. 이건 나중에 파일을 open할때 파일 구조체에게 파일 시스템 연산들의 주소를 알려주는데 사용된다. do_dentry_open확인  */
 		void (*free_inode)(struct inode *);	
 		// VFS가 아닌 실제 파일 시스템 아이노드 메모리를 해제하는 것 같다.
 		// ext4_free_in_core_inode 참고

@@ -1,0 +1,11 @@
+make[1]: Entering directory '/home/myeongin/EXT4_JBD2/linux/out'
+  GEN     Makefile
+mkdir -p /home/myeongin/EXT4_JBD2/linux/out/tools/objtool && make O=/home/myeongin/EXT4_JBD2/linux/out subdir=tools/objtool --no-print-directory -C objtool 
+  CALL    ../scripts/checksyscalls.sh
+  INSTALL libsubcmd_headers
+  CPP     fs/locks.i
+make[3]: *** No rule to make target 'zImage'.  Stop.
+make[2]: *** [/home/myeongin/EXT4_JBD2/linux/Makefile:347: __build_one_by_one] Error 2
+make[1]: *** [/home/myeongin/EXT4_JBD2/linux/Makefile:224: __sub-make] Error 2
+make[1]: Leaving directory '/home/myeongin/EXT4_JBD2/linux/out'
+make: *** [Makefile:224: __sub-make] Error 2

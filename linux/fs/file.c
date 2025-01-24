@@ -481,6 +481,9 @@ static unsigned int find_next_fd(struct fdtable *fdt, unsigned int start)
 
 /*
  * allocate a file descriptor, mark it busy.
+ * TODO: FDT에서 가장 번호 빠른 비어있는 fd 할당하는지 아니면 무조건 nextfd를 1씩 증가시키면서
+ * 할당하는지 알아보기.
+ * TODO: fd_install이랑 alloc_fd랑 분리해놓은 이유 알아보기
  */
 static int alloc_fd(unsigned start, unsigned end, unsigned flags)
 {
